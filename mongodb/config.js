@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// Get the MongoDB connection URL from the environment variable
 const MONGODB_URL = process.env.MONGODB_URL;
 
 const connectDB = async () => {
