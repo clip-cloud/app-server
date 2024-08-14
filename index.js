@@ -1,4 +1,6 @@
 require('dotenv').config();
+const cors = require('cors');
+
 
 // const db = require('./mongodb/config.js');
 // const db_schema = require('./mongodb/schema.js');
@@ -9,9 +11,52 @@ const db_schema = require('./mongodb/schema.js');
 const express = require('express');
 const bodyParser = require('body-parser');
 const service = express();
+
+service.use(cors());
 service.use(bodyParser.json());
 
+const multer = require('multer');
+const { exec } = require('child_process');
+const path = require('path');
+
+const upload = multer({ dest: 'uploads/' });
+
 const PORT = parseInt(process.env.SERVICE_PORT);
+
+const fs = require('fs');
+const tmp = require('tmp');
+
+service.post('/upload', upload.single('video'), (req, res) => {
+
+
+    const tmpFile = tmp.fileSync({ postfix: '.mp4' });
+
+    console.log("This is tmp file name", tmpFile.name);
+    exec(`ffmpeg -i ${req.file.path} -ss 00:00:05 -t 00:00:10 -c copy ${tmpFile.name}`, (err) => {
+        if (err) {
+            console.error('Error processing video:', err);
+            return res.status(500).send('Error processing video');
+        }
+
+
+
+        // Read the temp file and upload to MongoDB
+        fs.createReadStream(tmpFile.name)
+            .pipe(bucket.openUploadStream(path.basename(tmpFile.name)))
+            .on('error', (error) => {
+                console.error('Error uploading to MongoDB:', error);
+                return res.status(500).send('Error uploading video to MongoDB');
+            })
+            .on('finish', () => {
+                console.log('Video uploaded successfully to MongoDB');
+                tmpFile.removeCallback(); // Cleanup temporary file
+                res.send({ message: 'Video processed and uploaded to MongoDB successfully' });
+            });
+        console.log("End!");
+
+    });
+});
+
 
 
 service.post('/request/videos', async (req, res) => {
