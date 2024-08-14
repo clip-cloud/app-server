@@ -11,7 +11,19 @@ const bodyParser = require('body-parser');
 const service = express();
 service.use(bodyParser.json());
 
-const PORT = parseInt(process.env.SERVICE_PORT);  
+const PORT = parseInt(process.env.SERVICE_PORT);
+
+
+service.post('/request/videos', async (req, res) => {
+    try {
+        const videos = await db_schema.video.find(); // Fetch all videos from MongoDB
+        res.json(videos); // Send the videos back to the client
+    } catch (error) {
+        console.error('Error fetching videos:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
 
 service.post('/insert/video', async (req, res) => {
     try {
