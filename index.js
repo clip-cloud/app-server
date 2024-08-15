@@ -40,14 +40,14 @@ service.post('/upload', upload.single('video'), async (req, res) => {
 
         // Generate a unique output file name
         const uniqueSuffix = `${Date.now()}-${uuidv4()}`;
-        const outputFileName = `processed-${uniqueSuffix}-${originalname}`;
+        const outputFileName = `${uniqueSuffix}-${originalname}`;
         const outputPath = path.join(__dirname, 'uploads', outputFileName);
 
         // Write buffer to the temp file
         await fs.writeFile(tempFilePath, buffer);
 
         // Execute FFmpeg command
-        const ffmpegCommand = `ffmpeg -i "${tempFilePath}" -vf "scale=640:360" "${outputPath}"`;
+        const ffmpegCommand = `ffmpeg -i "${tempFilePath}" -vf "scale=iw:ih" "${outputPath}"`;
 
         exec(ffmpegCommand, async (err, stdout, stderr) => {
             if (err) {
@@ -102,6 +102,40 @@ service.get('/request/videos', async (req, res) => {
     } catch (error) {
         console.error('Error fetching videos:', error);
         res.status(500).json({ message: 'Internal Server Error' }); // Handle any errors that occur during fetching
+    }
+});
+
+const deleteVideoFromDatabase = async (videoId) => {
+    console.log("deleteVideoFromDatabase: ", videoId)
+    try {
+        // Find the video entry in the database
+        const video = await db_schema.video.findById(videoId);
+
+        if (!video) {
+            throw new Error('Video not found');
+        }
+
+        // Delete the video file from the filesystem
+        const filePath = path.join(__dirname, 'uploads', path.basename(video.filePath));
+        await fs.unlink(filePath);
+
+        // Delete the video entry from the database
+        await db_schema.video.findByIdAndDelete(videoId);
+    } catch (error) {
+        console.error('Error deleting video:', error);
+        throw error; // Re-throw the error to be caught by the route handler
+    }
+};
+
+service.delete('/request/videos/:id', async (req, res) => {
+    const videoId = req.params.id;
+    console.log("delete: ", videoId)
+    try {
+        // Perform deletion from your database
+        await deleteVideoFromDatabase(videoId);
+        res.status(200).send('Video removed');
+    } catch (error) {
+        res.status(500).send('Error removing video');
     }
 });
 
