@@ -14,10 +14,14 @@ const service = express();
 service.use(cors());
 service.use(bodyParser.json());
 
+// Serve static files from the 'uploads' directory
+service.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 const storage = multer.memoryStorage(); // Store files in memory
 const upload = multer({ storage: storage });
 
 const PORT = parseInt(process.env.SERVICE_PORT);
+const { v4: uuidv4 } = require('uuid'); // Import UUID for unique filenames
 
 service.post('/upload', upload.single('video'), async (req, res) => {
     try {
@@ -28,19 +32,22 @@ service.post('/upload', upload.single('video'), async (req, res) => {
 
         // Extract file information
         const { originalname, mimetype, buffer, size } = req.file;
-        const { title = 'Undifined', description = '' } = req.body;
+        const { title = 'Undefined', description = '' } = req.body;
 
         // Create a temporary file for input and output
-        const tempFile = tmp.fileSync({ postfix: path.extname(req.file.originalname) });
+        const tempFile = tmp.fileSync({ postfix: path.extname(originalname) });
         const tempFilePath = tempFile.name;
-        const outputPath = path.join(__dirname, 'uploads', 'processed-' + req.file.originalname);
+
+        // Generate a unique output file name
+        const uniqueSuffix = `${Date.now()}-${uuidv4()}`;
+        const outputFileName = `processed-${uniqueSuffix}-${originalname}`;
+        const outputPath = path.join(__dirname, 'uploads', outputFileName);
 
         // Write buffer to the temp file
         await fs.writeFile(tempFilePath, buffer);
 
         // Execute FFmpeg command
         const ffmpegCommand = `ffmpeg -i "${tempFilePath}" -vf "scale=640:360" "${outputPath}"`;
-        console.log(`Executing FFmpeg command: ${ffmpegCommand}`);
 
         exec(ffmpegCommand, async (err, stdout, stderr) => {
             if (err) {
@@ -48,27 +55,26 @@ service.post('/upload', upload.single('video'), async (req, res) => {
                 return res.status(500).send('Error processing video.');
             }
 
-            console.log('req.body.title:', req);
+            const duration = '10'; // Placeholder duration
 
             try {
                 // Save video details to MongoDB
                 const video = new db_schema.video({
                     title: originalname,
                     description: description,
-                    filePath: outputPath, // Path to the processed video
-                    duration: '0', // You may want to extract this from FFmpeg output
+                    filePath: `/uploads/${outputFileName}`, // Use the unique file path
+                    duration: duration,
                     format: mimetype,
                     size: size,
-                    createdAt: new Date()
+                    createdAt: new Date(),
                 });
 
                 await video.save();
 
                 // Clean up temporary files
                 tempFile.removeCallback();
-                await fs.unlink(outputPath);
 
-                res.status(200).send('Video uploaded and processed successfully.');
+                res.status(200).send({ message: 'Video uploaded and processed successfully.', filePath: `/uploads/${outputFileName}` });
             } catch (err) {
                 console.error('Error saving video:', err);
                 res.status(500).send('Error saving video.');
@@ -80,42 +86,22 @@ service.post('/upload', upload.single('video'), async (req, res) => {
     }
 });
 
-service.post('/request/videos', async (req, res) => {
+// Serve static files from the 'uploads' directory
+service.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+service.get('/request/videos', async (req, res) => {
     try {
+        console.log("Fetching videos from the database...");
         const videos = await db_schema.video.find(); // Fetch all videos from MongoDB
-        res.json(videos); // Send the videos back to the client
-    } catch (error) {
-        console.error('Error fetching videos:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
-    }
-});
 
-service.post('/insert/video', async (req, res) => {
-    try {
-        // Extract video data from the request body
-        const { title, description, videoUrl } = req.body;
-
-        // Ensure the data exists and is valid
-        if (!title || !videoUrl) {
-            return res.status(400).json({ error: 'Title and videoUrl are required' });
+        if (videos.length === 0) {
+            return res.status(404).json({ message: 'No videos found' });
         }
 
-        // Create a new video document
-        const newVideo = new db_schema.video({
-            title,
-            description,
-            filePath: videoUrl,
-            createdAt: new Date(),
-        });
-
-        // Save the document to the database
-        const savedVideo = await newVideo.save();
-
-        // Respond with the saved video data
-        res.status(201).json(savedVideo);
+        res.status(200).json(videos); // Send the videos back to the client with a success status
     } catch (error) {
-        console.error('Error saving video:', error);
-        res.status(500).send('Failed to save video');
+        console.error('Error fetching videos:', error);
+        res.status(500).json({ message: 'Internal Server Error' }); // Handle any errors that occur during fetching
     }
 });
 
