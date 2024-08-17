@@ -16,7 +16,7 @@ service.use(bodyParser.json());
 
 // Use environment variables
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URL;
 
 // Define base directory for uploads
 const BASE_DIR = process.env.BASE_DIR || '/home/ec2-user/app';
