@@ -6,8 +6,6 @@ const path = require('path');
 const fs = require('fs').promises; // Use promises API for fs
 const multer = require('multer');
 const { exec } = require('child_process');
-const db = require('./mongodb/config.js');
-const db_schema = require('./mongodb/schema.js');
 const { v4: uuidv4 } = require('uuid'); // Import UUID for unique filenames
 
 const service = express();
@@ -23,6 +21,27 @@ const storage = multer.memoryStorage(); // Store files in memory
 const upload = multer({ storage: storage });
 
 const PORT = parseInt(process.env.SERVICE_PORT);
+
+// Path to the metadata file
+const metadataFilePath = path.join(__dirname, 'video-metadata.json');
+
+// Function to read metadata from the file
+async function readMetadata() {
+    try {
+        const data = await fs.readFile(metadataFilePath, 'utf8');
+        return JSON.parse(data);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            return []; // Return an empty array if the file doesn't exist
+        }
+        throw err;
+    }
+}
+
+// Function to write metadata to the file
+async function writeMetadata(metadata) {
+    await fs.writeFile(metadataFilePath, JSON.stringify(metadata, null, 2));
+}
 
 service.post('/upload', upload.single('video'), async (req, res) => {
     try {
@@ -59,7 +78,12 @@ service.post('/upload', upload.single('video'), async (req, res) => {
             console.log('FFmpeg stderr:', stderr);
 
             try {
-                const video = new db_schema.video({
+                // Read existing metadata
+                const metadata = await readMetadata();
+
+                // Create a new metadata entry
+                const videoData = {
+                    id: uuidv4(),
                     title: originalname,
                     description: description,
                     filePath: `/uploads/${outputFileName}`,
@@ -67,14 +91,20 @@ service.post('/upload', upload.single('video'), async (req, res) => {
                     format: mimetype,
                     size: size,
                     createdAt: new Date(),
-                });
+                };
 
-                await video.save();
-                await fs.rmdir(tempDir, { recursive: true }); // Clean up temp directory
+                // Add the new entry to the metadata array
+                metadata.push(videoData);
+
+                // Write the updated metadata back to the file
+                await writeMetadata(metadata);
+
+                // Clean up the temp directory
+                await fs.rmdir(tempDir, { recursive: true });
                 res.status(200).send({ message: 'Video uploaded and processed successfully.', filePath: `/uploads/${outputFileName}` });
             } catch (err) {
-                console.error('Error saving video:', err);
-                res.status(500).send('Error saving video.');
+                console.error('Error saving video metadata:', err);
+                res.status(500).send('Error saving video metadata.');
             }
         });
     } catch (err) {
@@ -86,19 +116,28 @@ service.post('/upload', upload.single('video'), async (req, res) => {
 service.delete('/request/video/:id', async (req, res) => {
     const videoId = req.params.id;
     try {
-        // Find the video entry in the database
-        const video = await db_schema.video.findById(videoId);
+        // Read existing metadata
+        const metadata = await readMetadata();
 
-        if (!video) {
+        // Find the video entry by id
+        const videoIndex = metadata.findIndex(v => v.id === videoId);
+        if (videoIndex === -1) {
             throw new Error('Video not found');
         }
 
-        // Delete the video file from the filesystem
+        // Get the video file path
+        const video = metadata[videoIndex];
         const filePath = path.join(__dirname, 'uploads', path.basename(video.filePath));
+
+        // Delete the video file from the filesystem
         await fs.unlink(filePath);
 
-        // Delete the video entry from the database
-        await db_schema.video.findByIdAndDelete(videoId);
+        // Remove the video entry from the metadata array
+        metadata.splice(videoIndex, 1);
+
+        // Write the updated metadata back to the file
+        await writeMetadata(metadata);
+
         res.status(200).send('Video removed');
     } catch (error) {
         console.error('Error deleting video:', error);
@@ -108,8 +147,8 @@ service.delete('/request/video/:id', async (req, res) => {
 
 service.get('/request/videos', async (req, res) => {
     try {
-        console.log("Fetching videos from the database...");
-        const videos = await db_schema.video.find(); // Fetch all videos from MongoDB
+        console.log("Fetching videos from the local storage...");
+        const videos = await readMetadata();
 
         if (videos.length === 0) {
             return res.status(404).json({ message: 'No videos found' });
@@ -125,8 +164,11 @@ service.get('/request/videos', async (req, res) => {
 service.get('/request/single/video/:id', async (req, res) => {
     const videoId = req.params.id;
     try {
-        // Fetch the video from your database using the videoId
-        const video = await db_schema.video.findById(videoId);
+        // Read existing metadata
+        const videos = await readMetadata();
+
+        // Find the video by id
+        const video = videos.find(v => v.id === videoId);
 
         if (!video) {
             return res.status(404).send('Video not found');
@@ -141,6 +183,5 @@ service.get('/request/single/video/:id', async (req, res) => {
 });
 
 service.listen(PORT, () => {
-    db.connectDB();
     console.log(`🚀 service ready at: http://localhost:${PORT}`);
 });
