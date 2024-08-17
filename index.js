@@ -36,8 +36,8 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 service.get('/', (req, res) => {
     res.send('Welcome to the video processing server!');
-  });
-  
+});
+
 service.post('/upload', upload.single('video'), async (req, res) => {
     try {
         if (!req.file || !req.file.buffer) {
@@ -48,11 +48,17 @@ service.post('/upload', upload.single('video'), async (req, res) => {
         const { originalname, mimetype, buffer, size } = req.file;
         const { startTime, endTime, title = 'Undefined', description = '' } = req.body;
 
-        const tempFilePath = path.join(TEMP_DIR, path.basename(originalname));
+        const tempDir = path.join(__dirname, 'temp');
+        await fs.mkdir(tempDir, { recursive: true });
+        const tempFilePath = path.join(tempDir, path.basename(originalname));
+
+        // Ensure the output directory exists
+        const outputDir = path.join(__dirname, 'uploads');
+        await fs.mkdir(outputDir, { recursive: true });
 
         const uniqueSuffix = `${Date.now()}-${uuidv4()}`;
         const outputFileName = `${uniqueSuffix}-${originalname}`;
-        const outputPath = path.join(UPLOADS_DIR, outputFileName);
+        const outputPath = path.join(__dirname, 'uploads', outputFileName);
 
         await fs.writeFile(tempFilePath, buffer);
 
@@ -67,7 +73,12 @@ service.post('/upload', upload.single('video'), async (req, res) => {
             console.log('FFmpeg stderr:', stderr);
 
             try {
-                const video = new db_schema.video({
+                // Read existing metadata
+                const metadata = await readMetadata();
+
+                // Create a new metadata entry
+                const videoData = {
+                    id: uuidv4(),
                     title: originalname,
                     description: description,
                     filePath: `/uploads/${outputFileName}`,
@@ -75,14 +86,20 @@ service.post('/upload', upload.single('video'), async (req, res) => {
                     format: mimetype,
                     size: size,
                     createdAt: new Date(),
-                });
+                };
 
-                await video.save();
-                await fs.unlink(tempFilePath);
+                // Add the new entry to the metadata array
+                metadata.push(videoData);
+
+                // Write the updated metadata back to the file
+                await writeMetadata(metadata);
+
+                // Clean up the temp directory
+                await fs.rmdir(tempDir, { recursive: true });
                 res.status(200).send({ message: 'Video uploaded and processed successfully.', filePath: `/uploads/${outputFileName}` });
             } catch (err) {
-                console.error('Error saving video:', err);
-                res.status(500).send('Error saving video.');
+                console.error('Error saving video metadata:', err);
+                res.status(500).send('Error saving video metadata.');
             }
         });
     } catch (err) {
