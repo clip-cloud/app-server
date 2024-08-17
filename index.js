@@ -3,26 +3,37 @@ const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
-const fs = require('fs').promises; // Use promises API for fs
+const fs = require('fs').promises;
 const multer = require('multer');
 const { exec } = require('child_process');
 const db = require('./mongodb/config.js');
 const db_schema = require('./mongodb/schema.js');
-const { v4: uuidv4 } = require('uuid'); // Import UUID for unique filenames
+const { v4: uuidv4 } = require('uuid');
 
 const service = express();
 service.use(cors());
 service.use(bodyParser.json());
 
+// Use environment variables
+const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI;
+
+// Define base directory for uploads
+const BASE_DIR = process.env.BASE_DIR || '/home/ec2-user/app';
+const UPLOADS_DIR = path.join(BASE_DIR, 'uploads');
+const TEMP_DIR = path.join(BASE_DIR, 'temp');
+
+// Ensure directories exist
+fs.mkdir(UPLOADS_DIR, { recursive: true }).catch(console.error);
+fs.mkdir(TEMP_DIR, { recursive: true }).catch(console.error);
+
 // Serve static files from the 'uploads' directory
-service.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-    maxAge: '1d', // Cache static files for 1 day
+service.use('/uploads', express.static(UPLOADS_DIR, {
+    maxAge: '1d',
 }));
 
-const storage = multer.memoryStorage(); // Store files in memory
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-
-const PORT = parseInt(process.env.SERVICE_PORT);
 
 service.post('/upload', upload.single('video'), async (req, res) => {
     try {
@@ -34,17 +45,11 @@ service.post('/upload', upload.single('video'), async (req, res) => {
         const { originalname, mimetype, buffer, size } = req.file;
         const { startTime, endTime, title = 'Undefined', description = '' } = req.body;
 
-        const tempDir = path.join(__dirname, 'temp');
-        await fs.mkdir(tempDir, { recursive: true });
-        const tempFilePath = path.join(tempDir, path.basename(originalname));
-
-        // Ensure the output directory exists
-        const outputDir = path.join(__dirname, 'uploads');
-        await fs.mkdir(outputDir, { recursive: true });
+        const tempFilePath = path.join(TEMP_DIR, path.basename(originalname));
 
         const uniqueSuffix = `${Date.now()}-${uuidv4()}`;
         const outputFileName = `${uniqueSuffix}-${originalname}`;
-        const outputPath = path.join(__dirname, 'uploads', outputFileName);
+        const outputPath = path.join(UPLOADS_DIR, outputFileName);
 
         await fs.writeFile(tempFilePath, buffer);
 
@@ -70,7 +75,7 @@ service.post('/upload', upload.single('video'), async (req, res) => {
                 });
 
                 await video.save();
-                await fs.rmdir(tempDir, { recursive: true }); // Clean up temp directory
+                await fs.unlink(tempFilePath);
                 res.status(200).send({ message: 'Video uploaded and processed successfully.', filePath: `/uploads/${outputFileName}` });
             } catch (err) {
                 console.error('Error saving video:', err);
@@ -86,18 +91,15 @@ service.post('/upload', upload.single('video'), async (req, res) => {
 service.delete('/request/video/:id', async (req, res) => {
     const videoId = req.params.id;
     try {
-        // Find the video entry in the database
         const video = await db_schema.video.findById(videoId);
 
         if (!video) {
-            throw new Error('Video not found');
+            return res.status(404).send('Video not found');
         }
 
-        // Delete the video file from the filesystem
-        const filePath = path.join(__dirname, 'uploads', path.basename(video.filePath));
+        const filePath = path.join(UPLOADS_DIR, path.basename(video.filePath));
         await fs.unlink(filePath);
 
-        // Delete the video entry from the database
         await db_schema.video.findByIdAndDelete(videoId);
         res.status(200).send('Video removed');
     } catch (error) {
@@ -109,30 +111,28 @@ service.delete('/request/video/:id', async (req, res) => {
 service.get('/request/videos', async (req, res) => {
     try {
         console.log("Fetching videos from the database...");
-        const videos = await db_schema.video.find(); // Fetch all videos from MongoDB
+        const videos = await db_schema.video.find();
 
         if (videos.length === 0) {
             return res.status(404).json({ message: 'No videos found' });
         }
 
-        res.status(200).json(videos); // Send the videos back to the client with a success status
+        res.status(200).json(videos);
     } catch (error) {
         console.error('Error fetching videos:', error);
-        res.status(500).json({ message: 'Internal Server Error' }); // Handle any errors that occur during fetching
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
 service.get('/request/single/video/:id', async (req, res) => {
     const videoId = req.params.id;
     try {
-        // Fetch the video from your database using the videoId
         const video = await db_schema.video.findById(videoId);
 
         if (!video) {
             return res.status(404).send('Video not found');
         }
 
-        // Send the video data back to the client
         res.status(200).json(video);
     } catch (error) {
         console.error("Error fetching video: ", error);
@@ -140,7 +140,20 @@ service.get('/request/single/video/:id', async (req, res) => {
     }
 });
 
-service.listen(PORT, () => {
-    db.connectDB();
-    console.log(`🚀 service ready at: http://localhost:${PORT}`);
+service.listen(PORT, '0.0.0.0', () => {
+    db.connectDB(MONGODB_URI);
+    console.log(`🚀 service ready at: http://0.0.0.0:${PORT}`);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Perform any necessary cleanup here
+    process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Perform any necessary cleanup here
 });
