@@ -37,7 +37,7 @@ const upload = multer({ storage: storage });
 service.get('/', (req, res) => {
     res.send('Welcome to the video processing server!');
   });
-  
+
 service.post('/upload', upload.single('video'), async (req, res) => {
     try {
         if (!req.file || !req.file.buffer) {
@@ -145,7 +145,7 @@ service.get('/request/single/video/:id', async (req, res) => {
 
 service.listen(PORT, '0.0.0.0', () => {
     db.connectDB(MONGODB_URI);
-    console.log(`🚀 service ready at: http://0.0.0.0:${PORT}`);
+    console.log(`🚀 service ready at: http://34.255.196.211:${PORT}`);
 });
 
 // Handle uncaught exceptions
