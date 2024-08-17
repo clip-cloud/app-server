@@ -34,7 +34,10 @@ service.use('/uploads', express.static(UPLOADS_DIR, {
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-
+service.get('/', (req, res) => {
+    res.send('Welcome to the video processing server!');
+  });
+  
 service.post('/upload', upload.single('video'), async (req, res) => {
     try {
         if (!req.file || !req.file.buffer) {
