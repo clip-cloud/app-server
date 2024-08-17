@@ -1,35 +1,29 @@
 const mongo = require('./config.js');
 
-const video = mongo.mongoose.model('gallery', {
+const video = mongo.mongoose.model('video', {
     title: {
         type: String,
-        required: true,
-        trim: true
+        required: true
     },
     description: {
         type: String,
-        trim: true
+        default: ''
     },
     filePath: {
         type: String,
         required: true
     },
     duration: {
-        type: Number, // Duration in seconds
-        required: true
+        type: String,
+        default: '0'
     },
     format: {
         type: String,
-        required: true
-    },
-    width: {
-        type: Number
-    },
-    height: {
-        type: Number
+        default: ''
     },
     size: {
-        type: Number // Size in bytes
+        type: Number,
+        default: 0
     },
     createdAt: {
         type: Date,
@@ -37,7 +31,7 @@ const video = mongo.mongoose.model('gallery', {
     }
 });
 
-const gallery = mongo.mongoose.model('video', {
+const gallery = mongo.mongoose.model('gallery', {
     name: {
         type: String,
         required: true
