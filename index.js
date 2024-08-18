@@ -18,12 +18,12 @@ service.use(bodyParser.json());
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URL;
 
-// Define base directory for uploads
+// Defines directory for uploads
 const BASE_DIR = process.env.BASE_DIR || '/home/ec2-user/app';
 const UPLOADS_DIR = path.join(BASE_DIR, 'uploads');
 const TEMP_DIR = path.join(BASE_DIR, 'temp');
 
-// Ensure directories exist
+// Chek if the directories exists
 fs.mkdir(UPLOADS_DIR, { recursive: true }).catch(console.error);
 fs.mkdir(TEMP_DIR, { recursive: true }).catch(console.error);
 
@@ -36,7 +36,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 service.get('/', (req, res) => {
     res.send('Welcome to the video processing server!');
-  });
+});
 
 service.post('/upload', upload.single('video'), async (req, res) => {
     try {
@@ -148,15 +148,11 @@ service.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 service ready at: http://34.255.196.211:${PORT}`);
 });
 
-// Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
-    // Perform any necessary cleanup here
     process.exit(1);
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    // Perform any necessary cleanup here
 });
