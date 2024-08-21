@@ -37,8 +37,14 @@ service.use('/uploads', express.static(UPLOADS_DIR, {
     maxAge: '1d',
 }));
 
+
+// keeps the uploaded files in memory as a Buffer object, working as a small cahche
 const storage = multer.memoryStorage();
+// uploaded files will be stored in memory temporarily during the request like a cache
 const upload = multer({ storage: storage });
+
+
+// This event is never triggired from the client side
 service.get('/', (req, res) => {
     res.send('Welcome to the video processing server!');
 });
@@ -148,16 +154,18 @@ service.get('/request/single/video/:id', async (req, res) => {
     }
 });
 
-service.listen(PORT, '0.0.0.0', () => {
+service.listen(PORT, '34.255.196.211', () => {
     db.connectDB(MONGODB_URI);
     console.log(`🚀 service ready at: http://34.255.196.211:${PORT}`);
 });
 
+
+// Handles any uncaught exceptions in the application
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
     process.exit(1);
 });
-
+// Handles any unhandled promise rejections, this lines are not most, just for insure
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });

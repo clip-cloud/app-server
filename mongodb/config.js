@@ -13,7 +13,7 @@ const connectDB = async () => {
     }
 };
 
-
+// Not in use!
 function insert(schema, data) {
     const index = new schema(data);
     index.save()
