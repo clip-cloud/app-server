@@ -1,25 +1,30 @@
+const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
+
 const cors = require('cors');
 const express = require('express');
+
 const bodyParser = require('body-parser');
 const path = require('path');
+
 const fs = require('fs').promises;
+
 const multer = require('multer');
 const { exec } = require('child_process');
 const db = require('./mongodb/config.js');
 const db_schema = require('./mongodb/schema.js');
-const { v4: uuidv4 } = require('uuid');
 
 const service = express();
 service.use(cors());
 service.use(bodyParser.json());
 
+
 // Use environment variables
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 const MONGODB_URI = process.env.MONGODB_URL;
 
 // Defines directory for uploads
-const BASE_DIR = process.env.BASE_DIR || '/home/ec2-user/app';
+const BASE_DIR = process.env.BASE_DIR;
 const UPLOADS_DIR = path.join(BASE_DIR, 'uploads');
 const TEMP_DIR = path.join(BASE_DIR, 'temp');
 
