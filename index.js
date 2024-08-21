@@ -9,11 +9,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 
+
 const fs = require('fs').promises;
-
-
-
-
 
 const multer = require('multer');
 const { exec } = require('child_process');
@@ -27,17 +24,35 @@ service.use(bodyParser.json());
 
 // Use environment variables
 const PORT = process.env.PORT;
-const MONGODB_URI = process.env.MONGODB_URL;
 
+const MONGODB_URI = process.env.MONGODB_URL;
 // Defines directory for uploads
 const BASE_DIR = process.env.BASE_DIR;
+
+
+
+
+
+
+
+
+
 const UPLOADS_DIR = path.join(BASE_DIR, 'uploads');
+
+
+
 const TEMP_DIR = path.join(BASE_DIR, 'temp');
+
+
+
+
+
 
 
 
 // Chek if the directories exists
 fs.mkdir(UPLOADS_DIR, { recursive: true }).catch(console.error);
+
 
 
 fs.mkdir(TEMP_DIR, { recursive: true }).catch(console.error);
@@ -158,6 +173,10 @@ service.get('/request/single/video/:id', async (req, res) => {
     }
 });
 
+
+
+
+
 service.listen(PORT, '0.0.0.0', () => {
     db.connectDB(MONGODB_URI);
     console.log(`🚀 service ready at: http://34.255.196.211:${PORT}`);
@@ -168,10 +187,15 @@ process.on('uncaughtException', (error) => {
     process.exit(1);
 });
 
+
+
+
+
+
+
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
-
 
 
 
