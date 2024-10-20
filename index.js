@@ -160,7 +160,7 @@ service.get('/request/single/video/:id', async (req, res) => {
     }
 });
 
-service.listen(PORT, 'localhost', () => {
+service.listen(PORT, '0.0.0.0', () => {
     db.connectDB(MONGODB_URI);
     console.log(`🚀 service ready at: http://localhost:${PORT}`);
 });
