@@ -23,6 +23,12 @@ service.use(bodyParser.json());
 const PORT = process.env.PORT;
 const MONGODB_URI = process.env.MONGODB_URL;
 
+const { MongoClient } = require("mongodb");
+
+const username = encodeURIComponent("p@ssw0rd'9'!");
+const password = encodeURIComponent("p@ssw0rd'9'!");
+// console.log("this is the encode URL: ", password)
+
 // Defines directory for uploads
 const BASE_DIR = process.env.BASE_DIR;
 const UPLOADS_DIR = path.join(BASE_DIR, 'uploads');
@@ -154,9 +160,9 @@ service.get('/request/single/video/:id', async (req, res) => {
     }
 });
 
-service.listen(PORT, '34.255.196.211', () => {
+service.listen(PORT, 'localhost', () => {
     db.connectDB(MONGODB_URI);
-    console.log(`🚀 service ready at: http://34.255.196.211:${PORT}`);
+    console.log(`🚀 service ready at: http://localhost:${PORT}`);
 });
 
 

@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 
 const MONGODB_URL = process.env.MONGODB_URL;
+console.log("this is the encode URL: ", MONGODB_URL)
+
 
 const connectDB = async () => {
     try {
