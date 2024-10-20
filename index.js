@@ -30,7 +30,7 @@ const password = encodeURIComponent("p@ssw0rd'9'!");
 // console.log("this is the encode URL: ", password)
 
 // Defines directory for uploads
-const BASE_DIR = process.env.BASE_DIR;
+const BASE_DIR = path.resolve(__dirname);;
 const UPLOADS_DIR = path.join(BASE_DIR, 'uploads');
 const TEMP_DIR = path.join(BASE_DIR, 'temp');
 
