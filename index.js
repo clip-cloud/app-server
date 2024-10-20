@@ -56,6 +56,7 @@ service.get('/', (req, res) => {
 });
 
 service.post('/upload', upload.single('video'), async (req, res) => {
+    console.log("test11");
     try {
         if (!req.file || !req.file.buffer) {
             console.error('No file buffer found.');
