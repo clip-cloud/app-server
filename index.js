@@ -30,7 +30,7 @@ const password = encodeURIComponent("p@ssw0rd'9'!");
 // console.log("this is the encode URL: ", password)
 
 // Defines directory for uploads
-const BASE_DIR = path.resolve(__dirname);;
+const BASE_DIR = path.resolve(__dirname);
 const UPLOADS_DIR = path.join(BASE_DIR, 'uploads');
 const TEMP_DIR = path.join(BASE_DIR, 'temp');
 
@@ -119,8 +119,17 @@ service.delete('/request/video/:id', async (req, res) => {
         }
 
         const filePath = path.join(UPLOADS_DIR, path.basename(video.filePath));
-        await fs.unlink(filePath);
 
+        try {
+            // Check if the file exists before trying to delete
+            await fs.access(filePath);
+            await fs.unlink(filePath); // If the file exists, delete it
+        } catch (fileErr) {
+            console.error(`File not found or could not be accessed: ${filePath}`);
+            return res.status(404).send('File not found or already deleted.');
+        }
+
+        // Delete the video document from the database
         await db_schema.video.findByIdAndDelete(videoId);
         res.status(200).send('Video removed');
     } catch (error) {
