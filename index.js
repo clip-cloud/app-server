@@ -34,6 +34,9 @@ const BASE_DIR = process.env.BASE_DIR;
 const UPLOADS_DIR = path.join(BASE_DIR, 'uploads');
 const TEMP_DIR = path.join(BASE_DIR, 'temp');
 
+console.log('BASE_DIR:', process.env.BASE_DIR);  // or whichever variable is undefined
+
+
 // Chek if the directories exists
 fs.mkdir(UPLOADS_DIR, { recursive: true }).catch(console.error);
 fs.mkdir(TEMP_DIR, { recursive: true }).catch(console.error);
